@@ -1,7 +1,8 @@
 // ==UserScript==
 // @name         Promptimizer
-// @namespace    http://tampermonkey.net/
+// @namespace    https://github.com/NoahTheGinger/Promptimizer/
 // @version      1.0
+// @license      MIT
 // @description  AI-powered prompt optimization tool that works with OpenAI-compatible APIs
 // @author       NoahTheGinger
 // @match        *://*/*
