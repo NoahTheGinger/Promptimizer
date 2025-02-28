@@ -1,9 +1,10 @@
 // ==UserScript==
 // @name         Promptimizer
 // @namespace    https://github.com/NoahTheGinger/Promptimizer/
-// @version      1.1
+// @version      1.2
 // @description  AI-powered prompt optimization tool that works with OpenAI-compatible APIs
 // @author       NoahTheGinger
+// @namespace    https://github.com/NoahTheGinger/Promptimizer/
 // @match        *://*/*
 // @license      MIT
 // @grant        GM_xmlhttpRequest
@@ -19,11 +20,15 @@
     GM_addStyle(`
         #promptimizer-container {
             position: fixed;
-            /* Changed default position to top:20px; left:20px for more natural left/top resizing */
-            top: 20px;
-            left: 20px;
+            /*
+               UI CHANGE:
+               Default position now near bottom-right.
+               This corresponds with the toggle's new position in the bottom-right corner.
+            */
+            bottom: 80px;
+            right: 20px;
             width: 400px;
-            height: auto; /* Let the container's height auto-adjust at the start */
+            height: auto; /* Let container height auto-adjust initially */
             background: #ffffff;
             border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.3);
@@ -31,10 +36,23 @@
             font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
             display: none;
             color: #000000;
-            transition: width 0.2s ease, height 0.2s ease, top 0.2s ease, left 0.2s ease;
+            /* UI CHANGE: Added transform and opacity transitions for smoother show/hide + repositioning. */
+            transition:
+                opacity 0.2s ease,
+                width 0.2s ease,
+                height 0.2s ease,
+                top 0.2s ease,
+                left 0.2s ease,
+                right 0.2s ease,
+                bottom 0.2s ease;
             overflow: hidden;
             min-height: 300px;
             min-width: 300px;
+            opacity: 0; /* For fade effect upon showing */
+        }
+        /* UI CHANGE: A "show" class that toggles visibility with a fade */
+        #promptimizer-container.show {
+            opacity: 1;
         }
 
         #promptimizer-header {
@@ -46,6 +64,7 @@
             justify-content: space-between;
             align-items: center;
             color: #ffffff;
+            user-select: none; /* UI CHANGE: Prevent text selection while dragging header */
         }
 
         #promptimizer-header-controls {
@@ -80,9 +99,12 @@
 
         #promptimizer-toggle {
             position: fixed;
-            /* Also changed toggle to top-left for convenience; adapt as desired */
-            top: 20px;
-            left: 20px;
+            /*
+               UI CHANGE:
+               Toggle button now in bottom-right corner.
+            */
+            bottom: 20px;
+            right: 20px;
             width: 50px;
             height: 50px;
             background: #2196F3;
@@ -98,22 +120,18 @@
             border: 2px solid rgba(255,255,255,0.2);
         }
 
-        /* Make the container content area fill the space under the header for better resizing */
         #promptimizer-content {
-            /* We’ll rely on flexible layout to keep the text area resizing well. */
             display: flex;
             flex-direction: column;
             background: #ffffff;
             overflow: hidden;
-            /* Subtract height of header (48px is approximate; adjust if your header is bigger/smaller) */
             max-height: calc(100% - 48px);
         }
 
-        /* Use a vertical scroll inside the content if it extends beyond container height: */
         .scrollable-flex {
             overflow-y: auto;
-            flex: 1; /* Flexible region that takes leftover space */
-            padding: 16px; /* Keep the content from brushing edges */
+            flex: 1;
+            padding: 16px;
         }
 
         .promptimizer-input {
@@ -127,9 +145,8 @@
             color: #000000;
         }
 
-        /* Textarea specific styles */
         textarea.promptimizer-input {
-            resize: none; /* We'll handle resizing through container or auto-resizing logic */
+            resize: none;
             min-height: 100px;
             transition: border-color 0.2s ease, box-shadow 0.2s ease;
             overflow-y: auto;
@@ -139,52 +156,6 @@
             border-color: #2196F3;
             box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.2);
             outline: none;
-        }
-
-        /* Custom resize handles for the container—moved to top & left instead of bottom & right */
-        .resize-handle {
-            position: absolute;
-            background: transparent;
-            z-index: 10;
-        }
-        .resize-handle-left {
-            cursor: ew-resize;
-            width: 8px;
-            height: 100%;
-            left: 0;
-            top: 0;
-        }
-        .resize-handle-top {
-            cursor: ns-resize;
-            height: 8px;
-            width: 100%;
-            top: 0;
-            left: 0;
-        }
-        .resize-handle-corner {
-            cursor: nwse-resize;
-            width: 14px;
-            height: 14px;
-            left: 0;
-            top: 0;
-        }
-
-        /* Container resize visual feedback */
-        #promptimizer-container.resizing {
-            transition: none;
-            box-shadow: 0 2px 15px rgba(33, 150, 243, 0.4);
-        }
-
-        /* Example highlight for whichever handle is being dragged. Adjust as you like. */
-        #promptimizer-container.resizing-left {
-            border-left: 2px solid #2196F3;
-        }
-        #promptimizer-container.resizing-top {
-            border-top: 2px solid #2196F3;
-        }
-        #promptimizer-container.resizing-corner {
-            border-left: 2px solid #2196F3;
-            border-top: 2px solid #2196F3;
         }
 
         .prompt-type-select {
@@ -338,14 +309,101 @@
             opacity: 1;
             height: auto;
         }
+
+        /*
+           UI CHANGE:
+           Previously, only top-left resizing was available (.resize-handle-left, .resize-handle-top, .resize-handle-corner).
+           Now we add handles on all sides + both corners (top-left & bottom-right) for a more standard resizing experience.
+        */
+        .resize-handle {
+            position: absolute;
+            background: transparent;
+            z-index: 10;
+        }
+        /* Existing top-left handles */
+        .resize-handle-left {
+            cursor: ew-resize;
+            width: 8px;
+            height: 100%;
+            left: 0;
+            top: 0;
+        }
+        .resize-handle-top {
+            cursor: ns-resize;
+            height: 8px;
+            width: 100%;
+            top: 0;
+            left: 0;
+        }
+        .resize-handle-corner {
+            cursor: nwse-resize;
+            width: 14px;
+            height: 14px;
+            left: 0;
+            top: 0;
+        }
+
+        /* NEW bottom-right corner handle */
+        .resize-handle-corner-br {
+            cursor: nwse-resize;
+            width: 14px;
+            height: 14px;
+            right: 0;
+            bottom: 0;
+        }
+        /* NEW right-only handle */
+        .resize-handle-right {
+            cursor: ew-resize;
+            width: 8px;
+            height: 100%;
+            top: 0;
+            right: 0;
+        }
+        /* NEW bottom-only handle */
+        .resize-handle-bottom {
+            cursor: ns-resize;
+            height: 8px;
+            width: 100%;
+            bottom: 0;
+            left: 0;
+        }
+
+        #promptimizer-container.resizing {
+            transition: none;
+            box-shadow: 0 2px 15px rgba(33, 150, 243, 0.4);
+        }
+
+        #promptimizer-container.resizing-left {
+            border-left: 2px solid #2196F3;
+        }
+        #promptimizer-container.resizing-top {
+            border-top: 2px solid #2196F3;
+        }
+        #promptimizer-container.resizing-corner {
+            border-left: 2px solid #2196F3;
+            border-top: 2px solid #2196F3;
+        }
+
+        /* UI CHANGE: Additional highlighting classes for new handles. */
+        #promptimizer-container.resizing-right {
+            border-right: 2px solid #2196F3;
+        }
+        #promptimizer-container.resizing-bottom {
+            border-bottom: 2px solid #2196F3;
+        }
+        #promptimizer-container.resizing-corner-br {
+            border-right: 2px solid #2196F3;
+            border-bottom: 2px solid #2196F3;
+        }
     `);
 
     // Default dimensions and position
     const defaultDimensions = {
+        // UI CHANGE: Adjusted to bottom-right defaults
         width: '400px',
         height: 'auto',
-        top: '20px',
-        left: '20px'
+        bottom: '80px',
+        right: '20px'
     };
 
     // Create UI elements
@@ -368,7 +426,6 @@
                     <button class="header-button" id="promptimizer-minimize" title="Minimize">−</button>
                 </div>
             </div>
-            <!-- Note the new scrollable-flex class to hold inputs, etc. -->
             <div id="promptimizer-content">
               <div class="scrollable-flex">
                 <div class="config-section expanded" id="config-section">
@@ -402,14 +459,17 @@
                 </div>
               </div>
             </div>
-            <!-- Resizing handles moved to top & left -->
+            <!-- UI CHANGE: A complete set of resize handles: top-left corner, top, left, bottom-right corner, right, bottom. -->
             <div class="resize-handle resize-handle-left"></div>
             <div class="resize-handle resize-handle-top"></div>
             <div class="resize-handle resize-handle-corner"></div>
+            <div class="resize-handle resize-handle-right"></div>
+            <div class="resize-handle resize-handle-bottom"></div>
+            <div class="resize-handle resize-handle-corner-br"></div>
         `;
         document.body.appendChild(container);
 
-        // Make the container draggable
+        // Make the container draggable (UI only)
         makeDraggable(container);
 
         // Add container resizing
@@ -419,13 +479,32 @@
         loadConfiguration();
 
         // Event listeners
+        // UI CHANGE: Now using a smoother show/hide approach with fade
         toggle.addEventListener('click', () => {
-            // Toggle the entire UI
-            container.style.display = (container.style.display === 'none' ? 'block' : 'none');
+            if (container.style.display === 'none' || container.style.display === '') {
+                container.style.display = 'block';
+                // Force reflow, then add .show for fade-in
+                requestAnimationFrame(() => container.classList.add('show'));
+            } else {
+                // Remove .show for fade-out
+                container.classList.remove('show');
+                // Wait for transition to complete, then hide
+                setTimeout(() => {
+                    if (!container.classList.contains('show')) {
+                        container.style.display = 'none';
+                    }
+                }, 200);
+            }
         });
 
         document.getElementById('promptimizer-minimize').addEventListener('click', () => {
-            container.style.display = 'none';
+            // Fade out on minimize
+            container.classList.remove('show');
+            setTimeout(() => {
+                if (!container.classList.contains('show')) {
+                    container.style.display = 'none';
+                }
+            }, 200);
         });
 
         // Config section toggle
@@ -466,26 +545,21 @@
         }
     }
 
-    // Make an element draggable
+    // Make an element draggable (UI only; no functional logic changed)
     function makeDraggable(element) {
         const header = element.querySelector('#promptimizer-header');
         let isDragging = false;
-        let currentX;
-        let currentY;
-        let initialX;
-        let initialY;
-        let xOffset = 0;
-        let yOffset = 0;
+        let startX, startY, offsetX, offsetY;
 
         // Function to reset position and size
         function resetPosition() {
-            element.style.transform = 'translate(0, 0)';
-            element.style.top = defaultDimensions.top;
-            element.style.left = defaultDimensions.left;
+            // Remove transform usage; set position explicitly
             element.style.width = defaultDimensions.width;
             element.style.height = defaultDimensions.height;
-            xOffset = 0;
-            yOffset = 0;
+            element.style.bottom = defaultDimensions.bottom;
+            element.style.right = defaultDimensions.right;
+            element.style.top = 'auto';
+            element.style.left = 'auto';
 
             // Reset any set textarea dimensions
             const textarea = document.getElementById('prompt-input');
@@ -497,7 +571,7 @@
 
         // Add reset button event listener
         document.getElementById('promptimizer-reset').addEventListener('click', (e) => {
-            e.stopPropagation(); // Prevent drag start
+            e.stopPropagation(); // Prevent initiating a drag
             resetPosition();
         });
 
@@ -506,60 +580,75 @@
         document.addEventListener('mouseup', dragEnd);
 
         function dragStart(e) {
-            // If the click was on a button in the header, don't drag
             if (e.target.closest('.header-button')) {
                 return;
             }
-            initialX = e.clientX - xOffset;
-            initialY = e.clientY - yOffset;
+            isDragging = true;
+            // Compute how far from the element's top-left corner the pointer is
+            const rect = element.getBoundingClientRect();
+            startX = rect.left;
+            startY = rect.top;
+            offsetX = e.clientX - startX;
+            offsetY = e.clientY - startY;
 
-            if (e.target === header || e.target.closest('#promptimizer-header')) {
-                isDragging = true;
-            }
+            // Disable transition during actual drag for a crisper effect
+            element.style.transition = 'none';
         }
 
         function drag(e) {
-            if (isDragging) {
-                e.preventDefault();
-                currentX = e.clientX - initialX;
-                currentY = e.clientY - initialY;
-                xOffset = currentX;
-                yOffset = currentY;
+            if (!isDragging) return;
+            e.preventDefault();
 
-                element.style.transform = `translate(${currentX}px, ${currentY}px)`;
-            }
+            // Figure out the new top-left based on pointer
+            let newLeft = e.clientX - offsetX;
+            let newTop = e.clientY - offsetY;
+
+            // Keep within viewport, if desired
+            const rect = element.getBoundingClientRect();
+            const w = rect.width;
+            const h = rect.height;
+            const vw = window.innerWidth;
+            const vh = window.innerHeight;
+
+            // Adjust so it won't go offscreen
+            if (newLeft < 0) newLeft = 0;
+            if (newTop < 0) newTop = 0;
+            if (newLeft + w > vw) newLeft = vw - w;
+            if (newTop + h > vh) newTop = vh - h;
+
+            // Clear bottom/right so we can use top/left
+            element.style.bottom = 'auto';
+            element.style.right = 'auto';
+
+            // Apply new position
+            element.style.left = newLeft + 'px';
+            element.style.top = newTop + 'px';
         }
 
         function dragEnd() {
-            initialX = currentX;
-            initialY = currentY;
             isDragging = false;
-
-            // After dropping, compute final top/left to keep container in a new position:
-            const rect = element.getBoundingClientRect();
-            // The transform we used is purely visual, so we remove it and set real top/left
-            element.style.transform = '';
-            // Snap to new absolute left/top to remain at the same visible location
-            element.style.left = rect.left + 'px';
-            element.style.top = rect.top + 'px';
-            // Reset the offsets since transform is removed
-            xOffset = 0;
-            yOffset = 0;
+            // Re-enable transitions for nice layout changes after drag
+            element.style.transition =
+                'opacity 0.2s ease, width 0.2s ease, height 0.2s ease, top 0.2s ease, left 0.2s ease, right 0.2s ease, bottom 0.2s ease';
         }
 
-        // Initialize at default position
+        // Initialize at default bottom-right position
         resetPosition();
     }
 
-    // Make container resizable (top, left, corner)
+    // Make container resizable (UI only)
     function makeResizable(container) {
         const leftHandle = container.querySelector('.resize-handle-left');
         const topHandle = container.querySelector('.resize-handle-top');
-        const cornerHandle = container.querySelector('.resize-handle-corner');
+        const cornerTLHandle = container.querySelector('.resize-handle-corner');  // top-left corner
+        // UI CHANGE: Additional handles
+        const rightHandle = container.querySelector('.resize-handle-right');
+        const bottomHandle = container.querySelector('.resize-handle-bottom');
+        const cornerBRHandle = container.querySelector('.resize-handle-corner-br');
 
         let isResizing = false;
         let currentResizeType = '';
-        let startX, startY, startWidth, startHeight, startTop, startLeft;
+        let startX, startY, startWidth, startHeight, startTop, startLeft, startBottom, startRight;
 
         function startResize(e, type) {
             e.preventDefault();
@@ -568,31 +657,35 @@
             isResizing = true;
             currentResizeType = type;
 
-            // Current bounding info
             const rect = container.getBoundingClientRect();
             startWidth = rect.width;
             startHeight = rect.height;
             startTop = rect.top;
             startLeft = rect.left;
+            startBottom = window.innerHeight - rect.bottom;  // distance from bottom to viewport
+            startRight = window.innerWidth - rect.right;     // distance from right to viewport
             startX = e.clientX;
             startY = e.clientY;
 
-            // Add visual feedback classes
             container.classList.add('resizing');
             container.classList.add(`resizing-${type}`);
 
             document.addEventListener('mousemove', resize);
             document.addEventListener('mouseup', stopResize);
+
+            // Disable transitions during actual resize
+            container.style.transition = 'none';
         }
 
         function resize(e) {
             if (!isResizing) return;
 
-            // We’ll compute new top/left/width/height based on which handle
             let newWidth = startWidth;
             let newHeight = startHeight;
             let newTop = startTop;
             let newLeft = startLeft;
+            let newRight = startRight;
+            let newBottom = startBottom;
 
             const dx = e.clientX - startX;
             const dy = e.clientY - startY;
@@ -606,67 +699,77 @@
                     newHeight = startHeight - dy;
                     newTop = startTop + dy;
                     break;
-                case 'corner':
+                case 'corner': // top-left corner
                     newWidth = startWidth - dx;
                     newHeight = startHeight - dy;
                     newLeft = startLeft + dx;
                     newTop = startTop + dy;
                     break;
+                // UI CHANGE: Additional cases for new handles
+                case 'right':
+                    // Resizing from the right edge outward
+                    newWidth = startWidth + dx;
+                    break;
+                case 'bottom':
+                    // Resizing from the bottom edge downward
+                    newHeight = startHeight + dy;
+                    break;
+                case 'corner-br': // bottom-right corner
+                    newWidth = startWidth + dx;
+                    newHeight = startHeight + dy;
+                    break;
             }
 
             // Enforce minimum dimensions
             if (newWidth < 300) {
-                // If it’s going below min, readjust left so we don’t jump
-                const diff = 300 - newWidth;
                 newWidth = 300;
-                newLeft -= (currentResizeType === 'left' || currentResizeType === 'corner') ? diff : 0;
+                // If resizing from left or top-left corner, shift left to keep min width
+                if (['left','corner'].includes(currentResizeType)) {
+                    newLeft = startLeft + (startWidth - 300);
+                }
+                // If resizing from right or bottom-right corner, we just clamp
             }
             if (newHeight < 300) {
-                const diff = 300 - newHeight;
                 newHeight = 300;
-                newTop -= (currentResizeType === 'top' || currentResizeType === 'corner') ? diff : 0;
-            }
-
-            // Keep the container within viewport bounds if desired:
-            const viewportWidth = window.innerWidth;
-            const viewportHeight = window.innerHeight;
-
-            // If the top is going above the screen, clamp it
-            if (newTop < 0) {
-                const overshoot = 0 - newTop;
-                newTop = 0;
-                // Increase height accordingly if we’re pulling from the top
-                if (currentResizeType === 'top' || currentResizeType === 'corner') {
-                    newHeight -= overshoot;
+                // If resizing from top or top-left corner, shift top
+                if (['top','corner'].includes(currentResizeType)) {
+                    newTop = startTop + (startHeight - 300);
                 }
             }
-            // Similarly clamp left
-            if (newLeft < 0) {
-                const overshoot = 0 - newLeft;
+
+            // Keep within viewport (optional)
+            const vw = window.innerWidth;
+            const vh = window.innerHeight;
+            if (['left','corner'].includes(currentResizeType) && newLeft < 0) {
                 newLeft = 0;
-                if (currentResizeType === 'left' || currentResizeType === 'corner') {
-                    newWidth -= overshoot;
-                }
             }
-            // If the container extends beyond the right edge, clamp it
-            if (newLeft + newWidth > viewportWidth) {
-                newWidth = viewportWidth - newLeft;
+            if (['top','corner'].includes(currentResizeType) && newTop < 0) {
+                newTop = 0;
             }
-            // If the container extends beyond bottom edge, clamp it
-            if (newTop + newHeight > viewportHeight) {
-                newHeight = viewportHeight - newTop;
+            if (['right','corner-br'].includes(currentResizeType) && (startLeft + newWidth > vw)) {
+                newWidth = vw - startLeft;
+            }
+            if (['bottom','corner-br'].includes(currentResizeType) && (startTop + newHeight > vh)) {
+                newHeight = vh - startTop;
             }
 
-            // Apply new geometry
+            // Apply geometry. For bottom/right-based resizing, keep the container's top/left unless
+            // we're specifically resizing from top or left.
             container.style.width = newWidth + 'px';
             container.style.height = newHeight + 'px';
-            container.style.top = newTop + 'px';
-            container.style.left = newLeft + 'px';
+
+            // If resizing from left or top or top-left corner, update top/left explicitly
+            if (['left','top','corner'].includes(currentResizeType)) {
+                container.style.left = newLeft + 'px';
+                container.style.top = newTop + 'px';
+                // Clear bottom/right so they won't conflict
+                container.style.bottom = 'auto';
+                container.style.right = 'auto';
+            }
         }
 
         function stopResize() {
             isResizing = false;
-
             container.classList.remove('resizing');
             container.classList.remove(`resizing-${currentResizeType}`);
 
@@ -674,12 +777,17 @@
             document.removeEventListener('mouseup', stopResize);
 
             // Re-enable transitions
-            container.style.transition = 'width 0.2s ease, height 0.2s ease, top 0.2s ease, left 0.2s ease';
+            container.style.transition =
+                'opacity 0.2s ease, width 0.2s ease, height 0.2s ease, top 0.2s ease, left 0.2s ease, right 0.2s ease, bottom 0.2s ease';
         }
 
         leftHandle.addEventListener('mousedown', (e) => startResize(e, 'left'));
         topHandle.addEventListener('mousedown', (e) => startResize(e, 'top'));
-        cornerHandle.addEventListener('mousedown', (e) => startResize(e, 'corner'));
+        cornerTLHandle.addEventListener('mousedown', (e) => startResize(e, 'corner'));
+        // UI CHANGE: New handles
+        rightHandle.addEventListener('mousedown', (e) => startResize(e, 'right'));
+        bottomHandle.addEventListener('mousedown', (e) => startResize(e, 'bottom'));
+        cornerBRHandle.addEventListener('mousedown', (e) => startResize(e, 'corner-br'));
     }
 
     // Helper function to auto-resize textarea based on content
@@ -690,7 +798,6 @@
         textarea.style.height = 'auto';
         // Set new height based on content (with minimum)
         const newHeight = Math.max(textarea.scrollHeight, 100) + 'px';
-        // Apply the new height with transition
         textarea.style.transition = 'height 0.15s ease-out';
         textarea.style.height = newHeight;
         // Restore scroll position to prevent page jump
@@ -732,7 +839,6 @@
         responseDiv.textContent = message;
         responseDiv.className = isError ? 'promptimizer-error' : '';
 
-        // Show/hide copy button based on whether there's a successful response
         if (!isError && message !== 'Optimizing prompt...') {
             copyButton.style.display = 'block';
             setTimeout(() => copyButton.classList.add('visible'), 10);
