@@ -1,6 +1,6 @@
 # Promptimizer ✨
 
-![Version](https://img.shields.io/badge/version-1.0-blue)
+![Version](https://img.shields.io/badge/version-1.2-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 > AI-powered prompt optimization tool that works with any OpenAI-compatible API
