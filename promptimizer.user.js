@@ -435,7 +435,7 @@
                     </div>
                     <div class="config-content expanded">
                         <input type="text" id="api-url" class="promptimizer-input" placeholder="API URL (e.g., https://api.openai.com/v1)" />
-                        <input type="password" id="api-key" class="promptimizer-input" placeholder="API Key" />
+                        <input type="text" id="api-key" class="promptimizer-input" placeholder="API Key" autocomplete="off" spellcheck="false" inputmode="latin" data-1p-ignore="true" data-lpignore="true" style="-webkit-text-security: disc;" />
                         <input type="text" id="model-name" class="promptimizer-input" placeholder="Model name" />
                         <input type="text" id="provider-name" class="promptimizer-input" placeholder="Provider name (optional, for gpt4free)" />
                         <button id="save-config" class="promptimizer-button">Save Configuration</button>
