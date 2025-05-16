@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Promptimizer
 // @namespace    https://github.com/NoahTheGinger/Promptimizer/
-// @version      1.2
+// @version      1.2.2
 // @description  AI-powered prompt optimization tool that works with OpenAI-compatible APIs
 // @author       NoahTheGinger
 // @namespace    https://github.com/NoahTheGinger/Promptimizer/
